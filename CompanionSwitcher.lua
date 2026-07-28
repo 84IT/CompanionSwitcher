@@ -54,7 +54,7 @@ end
 -- ============================================================================
 
 -- 1. Main Action Button
-local actionButton = CreateFrame("CheckButton", "CompanionSwitcherActionButton", UIParent, "ActionButtonTemplate, SecureActionButtonTemplate")
+local actionButton = CreateFrame("CheckButton", "VanityBoxActionButton", UIParent, "ActionButtonTemplate, SecureActionButtonTemplate")
 actionButton:SetSize(36, 36)
 actionButton:SetClampedToScreen(true)
 actionButton:SetMovable(true)
@@ -196,7 +196,7 @@ ShowTooltip = function(owner)
     GameTooltip:AddLine("Right-Click: |cff00ff00Open Settings Menu|r")
     GameTooltip:AddLine("Scroll Wheel: |cff20efffCycle Selections|r")
     GameTooltip:AddLine("Shift + Drag: |cff888888Reposition Action Button|r")
-    local key = GetBindingKey("CLICK CompanionSwitcherActionButton:LeftButton")
+    local key = GetBindingKey("CLICK VanityBoxActionButton:LeftButton")
     if key then GameTooltip:AddLine("Hotkey bound: |cfffff500" .. key .. "|r") end
     GameTooltip:Show()
 end
@@ -325,7 +325,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         
         -- FIXED: Reassigned short text tokens to completely clean out old translation cache values
         _G["BINDING_HEADER_COMPANIONSWITCHER"] = "Companion"
-        _G["BINDING_NAME_CLICK CompanionSwitcherActionButton:LeftButton"] = "Summon"
+        _G["BINDING_NAME_CLICK VanityBoxActionButton:LeftButton"] = "Summon"
         
         ScanNativeCompanions()
         actionButton:SetPoint("CENTER", UIParent, "CENTER", CompanionSwitcherFixedDB.buttonX, CompanionSwitcherFixedDB.buttonY)
