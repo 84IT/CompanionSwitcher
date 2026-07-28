@@ -1,0 +1,8 @@
+## Interface: 30300
+## Title: CompanionSwitcher
+## Notes: Elegant, secure action and minimap buttons to switch between vanity companion spells.
+## Author: AI Assistant
+## Version: 1.1
+## SavedVariablesPerCharacter: CompanionSwitcherFixedDB
+
+CompanionSwitcher.lua
