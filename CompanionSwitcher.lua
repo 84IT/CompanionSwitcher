@@ -36,8 +36,8 @@ local function ScanNativeCompanions()
     table.sort(scannedCompanions, function(a, b) return a.name < b.name end)
     
     if CompanionSwitcherFixedDB and (CompanionSwitcherFixedDB.currentCompanionName == "" or not CompanionSwitcherFixedDB.currentCompanionName) and #scannedCompanions > 0 then
-        CompanionSwitcherFixedDB.currentCompanionName = scannedCompanions[1].name
-        CompanionSwitcherFixedDB.currentCompanionIcon = scannedCompanions[1].icon
+        CompanionSwitcherFixedDB.currentCompanionName = scannedCompanions.name
+        CompanionSwitcherFixedDB.currentCompanionIcon = scannedCompanions.icon
     end
 end
 
@@ -103,12 +103,10 @@ local function SetActiveCompanion(companionName, companionIcon)
     UpdateButtonVisuals()
 end
 
--- FIXED: Restored the full, favorite-prioritizing scroll cycle engine loop
 local function CycleCompanions(self, direction)
     if InCombatLockdown() then return end
     if #scannedCompanions == 0 then return end
     
-    -- Filter list to checked favorites first
     local cycleList = {}
     for _, pet in ipairs(scannedCompanions) do
         if CompanionSwitcherFixedDB.enabledCompanions[pet.name] and CompanionSwitcherFixedDB.favoriteCompanions[pet.name] then
@@ -116,7 +114,6 @@ local function CycleCompanions(self, direction)
         end
     end
     
-    -- Fall back to all enabled pets if no favorites are chosen
     if #cycleList == 0 then
         for _, pet in ipairs(scannedCompanions) do
             if CompanionSwitcherFixedDB.enabledCompanions[pet.name] then table.insert(cycleList, pet) end
@@ -145,9 +142,14 @@ actionButton:SetScript("OnDragStop", function(self)
     CompanionSwitcherFixedDB.buttonX = xOfs
     CompanionSwitcherFixedDB.buttonY = yOfs
 end)
-actionButton:SetScript("OnMouseUp", function(self, button) if button == "RightButton" then ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) end end)
 
--- FIXED: Wired up our corrected cycle logic directly into the mouse scroll handler script
+-- FIXED: Explicitly maps to the exact local dropdownMenu frame reference
+actionButton:SetScript("OnMouseUp", function(self, button) 
+    if button == "RightButton" then 
+        ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) 
+    end 
+end)
+
 actionButton:SetScript("OnMouseWheel", function(self, delta) CycleCompanions(self, delta) end)
 ShowTooltip = function(owner)
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
@@ -185,7 +187,13 @@ minimapButton:SetScript("OnDragStop", function(self)
         UpdateMinimapPosition()
     end
 end)
-minimapButton:SetScript("OnClick", function(self, button) if button == "LeftButton" then ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) end end)
+
+-- FIXED: Direct target tracking link assigned correctly to the dropdown framework
+minimapButton:SetScript("OnClick", function(self, button) 
+    if button == "LeftButton" then 
+        ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) 
+    end 
+end)
 
 local function InitializeDropdown(self, level)
     level = level or 1
@@ -299,7 +307,6 @@ frame:SetScript("OnEvent", function(self, event, arg1)
     end
 end)
 
--- Note: The /cs minimap command handles hiding the minimap button toggles
 SLASH_COMPANIONSWITCHER1 = "/cs"
 SlashCmdList["COMPANIONSWITCHER"] = function(msg)
     if msg == "minimap" then
