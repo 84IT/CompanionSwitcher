@@ -1,5 +1,5 @@
 <Bindings>
-    <Binding name="CLICK CompanionSwitcherActionButton:LeftButton" header="COMPANIONSWITCHER">
+    <Binding name="CLICK VanityBoxActionButton:LeftButton" header="COMPANIONSWITCHER">
         Summon
     </Binding>
 </Bindings>
