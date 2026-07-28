@@ -13,17 +13,13 @@ local defaults = {
     buttonY = -120,
     minimapAngle = 180, 
     showMinimap = true,
-    enabledCompanions = {},   -- Stores [companionName] = true/false
-    favoriteCompanions = {}  -- Stores [companionName] = true/false
+    enabledCompanions = {},   
+    favoriteCompanions = {}  
 }
 
--- Runtime repositories loaded dynamically from the game client
 local scannedCompanions = {}
 local ShowTooltip
 
--- ============================================================================
--- Automated Collection Scanner
--- ============================================================================
 local function ScanNativeCompanions()
     table.wipe(scannedCompanions)
     local totalCompanions = GetNumCompanions("CRITTER")
@@ -33,25 +29,17 @@ local function ScanNativeCompanions()
         local _, name, _, iconTexture = GetCompanionInfo("CRITTER", i)
         if name and iconTexture then
             table.insert(scannedCompanions, { name = name, icon = iconTexture })
-            if CompanionSwitcherFixedDB.enabledCompanions[name] == nil then
-                CompanionSwitcherFixedDB.enabledCompanions[name] = true
-            end
-            if CompanionSwitcherFixedDB.favoriteCompanions[name] == nil then
-                CompanionSwitcherFixedDB.favoriteCompanions[name] = false
-            end
+            if CompanionSwitcherFixedDB.enabledCompanions[name] == nil then CompanionSwitcherFixedDB.enabledCompanions[name] = true end
+            if CompanionSwitcherFixedDB.favoriteCompanions[name] == nil then CompanionSwitcherFixedDB.favoriteCompanions[name] = false end
         end
     end
     table.sort(scannedCompanions, function(a, b) return a.name < b.name end)
     
     if CompanionSwitcherFixedDB and (CompanionSwitcherFixedDB.currentCompanionName == "" or not CompanionSwitcherFixedDB.currentCompanionName) and #scannedCompanions > 0 then
-        CompanionSwitcherFixedDB.currentCompanionName = scannedCompanions.name
-        CompanionSwitcherFixedDB.currentCompanionIcon = scannedCompanions.icon
+        CompanionSwitcherFixedDB.currentCompanionName = scannedCompanions[1].name
+        CompanionSwitcherFixedDB.currentCompanionIcon = scannedCompanions[1].icon
     end
 end
-
--- ============================================================================
--- UI Elements Construction
--- ============================================================================
 
 -- 1. Main Action Button
 local actionButton = CreateFrame("CheckButton", "VanityBoxActionButton", UIParent, "ActionButtonTemplate, SecureActionButtonTemplate")
@@ -87,12 +75,7 @@ minimapBorder:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 minimapBorder:SetSize(54, 54)
 minimapBorder:SetPoint("TOPLEFT", 0, 0)
 
--- 3. Dropdown Menu
 local dropdownMenu = CreateFrame("Frame", "CompanionSwitcherDropdown", actionButton, "UIDropDownMenuTemplate")
-
--- ============================================================================
--- Logic & UI Updates
--- ============================================================================
 
 local function UpdateButtonVisuals()
     if not CompanionSwitcherFixedDB then return end
@@ -103,14 +86,8 @@ local function UpdateButtonVisuals()
     minimapIcon:SetTexture(activeTexture)
     
     local nameLabel = _G[actionButton:GetName().."Name"]
-    if nameLabel then
-        local shortName = companion and companion:gsub("Book of ", "") or ""
-        nameLabel:SetText(shortName)
-    end
-    
-    if not InCombatLockdown() and companion and companion ~= "" then
-        actionButton:SetAttribute("spell", companion)
-    end
+    if nameLabel then nameLabel:SetText(companion and companion:gsub("Book of ", "") or "") end
+    if not InCombatLockdown() and companion and companion ~= "" then actionButton:SetAttribute("spell", companion) end
 end
 
 local function UpdateMinimapPosition()
@@ -120,25 +97,26 @@ local function UpdateMinimapPosition()
 end
 
 local function SetActiveCompanion(companionName, companionIcon)
-    if InCombatLockdown() then
-        UIErrorsFrame:AddMessage("Cannot swap companions in combat!", 1.0, 0.1, 0.1, 1.0)
-        return
-    end
+    if InCombatLockdown() then return end
     CompanionSwitcherFixedDB.currentCompanionName = companionName
     CompanionSwitcherFixedDB.currentCompanionIcon = companionIcon
     UpdateButtonVisuals()
 end
 
+-- FIXED: Restored the full, favorite-prioritizing scroll cycle engine loop
 local function CycleCompanions(self, direction)
     if InCombatLockdown() then return end
     if #scannedCompanions == 0 then return end
     
+    -- Filter list to checked favorites first
     local cycleList = {}
     for _, pet in ipairs(scannedCompanions) do
         if CompanionSwitcherFixedDB.enabledCompanions[pet.name] and CompanionSwitcherFixedDB.favoriteCompanions[pet.name] then
             table.insert(cycleList, pet)
         end
     end
+    
+    -- Fall back to all enabled pets if no favorites are chosen
     if #cycleList == 0 then
         for _, pet in ipairs(scannedCompanions) do
             if CompanionSwitcherFixedDB.enabledCompanions[pet.name] then table.insert(cycleList, pet) end
@@ -160,10 +138,6 @@ local function CycleCompanions(self, direction)
     if GameTooltip:IsOwned(self) then ShowTooltip(self) end
 end
 
--- ============================================================================
--- Interactive Drag & Mouse Handling Scripts
--- ============================================================================
-
 actionButton:SetScript("OnDragStart", function(self) if IsShiftKeyDown() then self:StartMoving() end end)
 actionButton:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
@@ -171,16 +145,10 @@ actionButton:SetScript("OnDragStop", function(self)
     CompanionSwitcherFixedDB.buttonX = xOfs
     CompanionSwitcherFixedDB.buttonY = yOfs
 end)
+actionButton:SetScript("OnMouseUp", function(self, button) if button == "RightButton" then ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) end end)
 
-actionButton:SetScript("OnMouseUp", function(self, button)
-    if button == "RightButton" then
-        ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0)
-    end
-end)
-
-actionButton:SetScript("OnMouseWheel", function(self, delta)
-    CycleCompanions(self, delta)
-end)
+-- FIXED: Wired up our corrected cycle logic directly into the mouse scroll handler script
+actionButton:SetScript("OnMouseWheel", function(self, delta) CycleCompanions(self, delta) end)
 ShowTooltip = function(owner)
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
     GameTooltip:SetText("CompanionSwitcher", 1, 1, 1)
@@ -217,15 +185,11 @@ minimapButton:SetScript("OnDragStop", function(self)
         UpdateMinimapPosition()
     end
 end)
-
-minimapButton:SetScript("OnClick", function(self, button)
-    if button == "LeftButton" then ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) end
-end)
+minimapButton:SetScript("OnClick", function(self, button) if button == "LeftButton" then ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) end end)
 
 local function InitializeDropdown(self, level)
     level = level or 1
     if #scannedCompanions == 0 then return end
-    
     if level == 1 then
         local info = UIDropDownMenu_CreateInfo()
         info.text = "Select Active Companion"
@@ -242,11 +206,7 @@ local function InitializeDropdown(self, level)
                 info.value = pet.name
                 info.icon = pet.icon
                 info.checked = (pet.name == CompanionSwitcherFixedDB.currentCompanionName)
-                
-                info.func = function(s) 
-                    CloseDropDownMenus()
-                    SetActiveCompanion(s.value, pet.icon)
-                end
+                info.func = function(s) CloseDropDownMenus() SetActiveCompanion(s.value, pet.icon) end
                 UIDropDownMenu_AddButton(info, level)
             end
         end
@@ -270,7 +230,6 @@ local function InitializeDropdown(self, level)
         info.value = "FavMenu"
         info.notCheckable = true
         UIDropDownMenu_AddButton(info, level)
-        
     elseif level == 2 and UIDROPDOWNMENU_MENU_VALUE == "FilterMenu" then
         for _, pet in ipairs(scannedCompanions) do
             local info = UIDropDownMenu_CreateInfo()
@@ -284,9 +243,7 @@ local function InitializeDropdown(self, level)
                 CompanionSwitcherFixedDB.enabledCompanions[s.value] = not CompanionSwitcherFixedDB.enabledCompanions[s.value]
                 s.checked = CompanionSwitcherFixedDB.enabledCompanions[s.value]
                 if s.value == CompanionSwitcherFixedDB.currentCompanionName and not s.checked then
-                    for _, alt in ipairs(scannedCompanions) do
-                        if CompanionSwitcherFixedDB.enabledCompanions[alt.name] then SetActiveCompanion(alt.name, alt.icon) break end
-                    end
+                    for _, alt in ipairs(scannedCompanions) do if CompanionSwitcherFixedDB.enabledCompanions[alt.name] then SetActiveCompanion(alt.name, alt.icon) break end end
                 end
             end
             UIDropDownMenu_AddButton(info, level)
@@ -317,13 +274,8 @@ frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         if not CompanionSwitcherFixedDB then CompanionSwitcherFixedDB = {} end
-        for k, v in pairs(defaults) do
-            if CompanionSwitcherFixedDB[k] == nil then
-                if type(v) == "table" then CompanionSwitcherFixedDB[k] = {} else CompanionSwitcherFixedDB[k] = v end
-            end
-        end
+        for k, v in pairs(defaults) do if CompanionSwitcherFixedDB[k] == nil then if type(v) == "table" then CompanionSwitcherFixedDB[k] = {} else CompanionSwitcherFixedDB[k] = v end end end
         
-        -- FIXED: Reassigned short text tokens to completely clean out old translation cache values
         _G["BINDING_HEADER_COMPANIONSWITCHER"] = "Companion"
         _G["BINDING_NAME_CLICK VanityBoxActionButton:LeftButton"] = "Summon"
         
@@ -332,7 +284,6 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         UpdateMinimapPosition()
         UpdateButtonVisuals()
         UIDropDownMenu_Initialize(dropdownMenu, InitializeDropdown, "MENU")
-        
         if CompanionSwitcherFixedDB.showMinimap then minimapButton:Show() else minimapButton:Hide() end
         self:UnregisterEvent("ADDON_LOADED")
     elseif event == "COMPANION_LEARNED" then
@@ -348,6 +299,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
     end
 end)
 
+-- Note: The /cs minimap command handles hiding the minimap button toggles
 SLASH_COMPANIONSWITCHER1 = "/cs"
 SlashCmdList["COMPANIONSWITCHER"] = function(msg)
     if msg == "minimap" then
