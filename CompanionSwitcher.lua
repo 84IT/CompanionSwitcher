@@ -1,5 +1,5 @@
 -- ============================================================================
--- CompanionSwitcher: Dynamic Tooltip Refresh Edition (WoW 3.3.5a)
+-- CompanionSwitcher: Fully Automated WotLK Native Engine Edition (3.3.5a)
 -- ============================================================================
 
 local ADDON_NAME = "CompanionSwitcher"
@@ -19,8 +19,6 @@ local defaults = {
 
 -- Runtime repositories loaded dynamically from the game client
 local scannedCompanions = {}
-
--- Forward declaration of the tooltip function so our mouse script can see it
 local ShowTooltip
 
 -- ============================================================================
@@ -28,19 +26,13 @@ local ShowTooltip
 -- ============================================================================
 local function ScanNativeCompanions()
     table.wipe(scannedCompanions)
-    
     local totalCompanions = GetNumCompanions("CRITTER")
     if not totalCompanions or totalCompanions == 0 then return end
     
     for i = 1, totalCompanions do
         local _, name, _, iconTexture = GetCompanionInfo("CRITTER", i)
-        
         if name and iconTexture then
-            table.insert(scannedCompanions, {
-                name = name,
-                icon = iconTexture
-            })
-            
+            table.insert(scannedCompanions, { name = name, icon = iconTexture })
             if CompanionSwitcherFixedDB.enabledCompanions[name] == nil then
                 CompanionSwitcherFixedDB.enabledCompanions[name] = true
             end
@@ -49,12 +41,11 @@ local function ScanNativeCompanions()
             end
         end
     end
-    
     table.sort(scannedCompanions, function(a, b) return a.name < b.name end)
     
     if CompanionSwitcherFixedDB and (CompanionSwitcherFixedDB.currentCompanionName == "" or not CompanionSwitcherFixedDB.currentCompanionName) and #scannedCompanions > 0 then
-        CompanionSwitcherFixedDB.currentCompanionName = scannedCompanions[1].name
-        CompanionSwitcherFixedDB.currentCompanionIcon = scannedCompanions[1].icon
+        CompanionSwitcherFixedDB.currentCompanionName = scannedCompanions.name
+        CompanionSwitcherFixedDB.currentCompanionIcon = scannedCompanions.icon
     end
 end
 
@@ -69,7 +60,6 @@ actionButton:SetClampedToScreen(true)
 actionButton:SetMovable(true)
 actionButton:RegisterForDrag("LeftButton")
 actionButton:EnableMouseWheel(true)
-
 actionButton:RegisterForClicks("LeftButtonUp")
 actionButton:SetAttribute("type", "spell") 
 
@@ -106,7 +96,6 @@ local dropdownMenu = CreateFrame("Frame", "CompanionSwitcherDropdown", actionBut
 
 local function UpdateButtonVisuals()
     if not CompanionSwitcherFixedDB then return end
-    
     local companion = CompanionSwitcherFixedDB.currentCompanionName
     local activeTexture = CompanionSwitcherFixedDB.currentCompanionIcon
     
@@ -150,23 +139,16 @@ local function CycleCompanions(self, direction)
             table.insert(cycleList, pet)
         end
     end
-    
     if #cycleList == 0 then
         for _, pet in ipairs(scannedCompanions) do
-            if CompanionSwitcherFixedDB.enabledCompanions[pet.name] then
-                table.insert(cycleList, pet)
-            end
+            if CompanionSwitcherFixedDB.enabledCompanions[pet.name] then table.insert(cycleList, pet) end
         end
     end
-    
     if #cycleList == 0 then return end
 
     local currentIndex = 1
     for i, pet in ipairs(cycleList) do
-        if pet.name == CompanionSwitcherFixedDB.currentCompanionName then
-            currentIndex = i
-            break
-        end
+        if pet.name == CompanionSwitcherFixedDB.currentCompanionName then currentIndex = i break end
     end
     
     local nextIndex = currentIndex + (direction > 0 and -1 or 1)
@@ -175,21 +157,14 @@ local function CycleCompanions(self, direction)
     
     local target = cycleList[nextIndex]
     SetActiveCompanion(target.name, target.icon)
-    
-    -- REFINEMENT: Force the tooltip to redraw the text string live if your mouse cursor is hovering over it!
-    if GameTooltip:IsOwned(self) then
-        ShowTooltip(self)
-    end
+    if GameTooltip:IsOwned(self) then ShowTooltip(self) end
 end
 
 -- ============================================================================
--- Interaction Scripts
+-- Interactive Drag & Mouse Handling Scripts
 -- ============================================================================
 
-actionButton:SetScript("OnDragStart", function(self)
-    if IsShiftKeyDown() then self:StartMoving() end
-end)
-
+actionButton:SetScript("OnDragStart", function(self) if IsShiftKeyDown() then self:StartMoving() end end)
 actionButton:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
     local _, _, _, xOfs, yOfs = self:GetPoint()
@@ -206,11 +181,9 @@ end)
 actionButton:SetScript("OnMouseWheel", function(self, delta)
     CycleCompanions(self, delta)
 end)
--- Defining our forwarded Tooltip handler logic
 ShowTooltip = function(owner)
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
     GameTooltip:SetText("CompanionSwitcher", 1, 1, 1)
-    
     local companion = CompanionSwitcherFixedDB.currentCompanionName
     if companion and companion ~= "" then
         local isFav = CompanionSwitcherFixedDB.favoriteCompanions[companion]
@@ -219,12 +192,10 @@ ShowTooltip = function(owner)
     else
         GameTooltip:AddLine("Active: |cffff8888No companion selected|r")
     end
-    
     GameTooltip:AddLine("Left-Click: |cff00ff00Summon Companion|r")
-    GameTooltip:AddLine("Right-Click: |cff00ff00Open Dropdown Selection Menu|r")
+    GameTooltip:AddLine("Right-Click: |cff00ff00Open Settings Menu|r")
     GameTooltip:AddLine("Scroll Wheel: |cff20efffCycle Selections|r")
     GameTooltip:AddLine("Shift + Drag: |cff888888Reposition Action Button|r")
-    
     local key = GetBindingKey("CLICK CompanionSwitcherActionButton:LeftButton")
     if key then GameTooltip:AddLine("Hotkey bound: |cfffff500" .. key .. "|r") end
     GameTooltip:Show()
@@ -248,12 +219,9 @@ minimapButton:SetScript("OnDragStop", function(self)
 end)
 
 minimapButton:SetScript("OnClick", function(self, button)
-    if button == "LeftButton" then
-        ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0)
-    end
+    if button == "LeftButton" then ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) end
 end)
 
--- Built-In Dropdown Configuration Menu
 local function InitializeDropdown(self, level)
     level = level or 1
     if #scannedCompanions == 0 then return end
@@ -268,21 +236,17 @@ local function InitializeDropdown(self, level)
         for _, pet in ipairs(scannedCompanions) do
             if CompanionSwitcherFixedDB.enabledCompanions[pet.name] then
                 info = UIDropDownMenu_CreateInfo()
-                
                 local textLabel = pet.name
-                if CompanionSwitcherFixedDB.favoriteCompanions[pet.name] then
-                    textLabel = "|cffffd700★|r " .. textLabel
-                end
-                
+                if CompanionSwitcherFixedDB.favoriteCompanions[pet.name] then textLabel = "|cffffd700★|r " .. textLabel end
                 info.text = textLabel
                 info.value = pet.name
                 info.icon = pet.icon
+                info.checked = (pet.name == CompanionSwitcherFixedDB.currentCompanionName)
                 
                 info.func = function(s) 
                     CloseDropDownMenus()
                     SetActiveCompanion(s.value, pet.icon)
                 end
-                info.checked = (pet.name == CompanionSwitcherFixedDB.currentCompanionName)
                 UIDropDownMenu_AddButton(info, level)
             end
         end
@@ -319,19 +283,14 @@ local function InitializeDropdown(self, level)
             info.func = function(s)
                 CompanionSwitcherFixedDB.enabledCompanions[s.value] = not CompanionSwitcherFixedDB.enabledCompanions[s.value]
                 s.checked = CompanionSwitcherFixedDB.enabledCompanions[s.value]
-                
                 if s.value == CompanionSwitcherFixedDB.currentCompanionName and not s.checked then
                     for _, alt in ipairs(scannedCompanions) do
-                        if CompanionSwitcherFixedDB.enabledCompanions[alt.name] then
-                            SetActiveCompanion(alt.name, alt.icon)
-                            break
-                        end
+                        if CompanionSwitcherFixedDB.enabledCompanions[alt.name] then SetActiveCompanion(alt.name, alt.icon) break end
                     end
                 end
             end
             UIDropDownMenu_AddButton(info, level)
         end
-        
     elseif level == 2 and UIDROPDOWNMENU_MENU_VALUE == "FavMenu" then
         for _, pet in ipairs(scannedCompanions) do
             local info = UIDropDownMenu_CreateInfo()
@@ -350,30 +309,23 @@ local function InitializeDropdown(self, level)
     end
 end
 
--- ============================================================================
--- Event Coordinator Framework
--- ============================================================================
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("COMPANION_LEARNED") 
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 
-frame:SetScript("OnEvent", function(self, event, arg1, ...)
+frame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         if not CompanionSwitcherFixedDB then CompanionSwitcherFixedDB = {} end
-        
         for k, v in pairs(defaults) do
             if CompanionSwitcherFixedDB[k] == nil then
-                if type(v) == "table" then
-                    CompanionSwitcherFixedDB[k] = {}
-                else
-                    CompanionSwitcherFixedDB[k] = v
-                end
+                if type(v) == "table" then CompanionSwitcherFixedDB[k] = {} else CompanionSwitcherFixedDB[k] = v end
             end
         end
         
-        _G["BINDING_HEADER_COMPANIONSWITCHER"] = "CompanionSwitcher Keys"
-        _G["BINDING_NAME_CLICK CompanionSwitcherActionButton:LeftButton"] = "Trigger Active Summon Button"
+        -- FIXED: Reassigned short text tokens to completely clean out old translation cache values
+        _G["BINDING_HEADER_COMPANIONSWITCHER"] = "Companion"
+        _G["BINDING_NAME_CLICK CompanionSwitcherActionButton:LeftButton"] = "Summon"
         
         ScanNativeCompanions()
         actionButton:SetPoint("CENTER", UIParent, "CENTER", CompanionSwitcherFixedDB.buttonX, CompanionSwitcherFixedDB.buttonY)
@@ -383,7 +335,6 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
         
         if CompanionSwitcherFixedDB.showMinimap then minimapButton:Show() else minimapButton:Hide() end
         self:UnregisterEvent("ADDON_LOADED")
-        
     elseif event == "COMPANION_LEARNED" then
         ScanNativeCompanions()
         UpdateButtonVisuals()
@@ -397,18 +348,10 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
     end
 end)
 
--- ============================================================================
--- Slash Commands Controls
--- ============================================================================
 SLASH_COMPANIONSWITCHER1 = "/cs"
 SlashCmdList["COMPANIONSWITCHER"] = function(msg)
     if msg == "minimap" then
         CompanionSwitcherFixedDB.showMinimap = not CompanionSwitcherFixedDB.showMinimap
         if CompanionSwitcherFixedDB.showMinimap then minimapButton:Show() else minimapButton:Hide() end
-        print("|cff00ff00[CompanionSwitcher]:|r Minimap button display toggled.")
-    else
-        print("|cff00ff00CompanionSwitcher Help Commands Menu:|r")
-        print("  Right-Click the action button to view all your parsed companion assets automatically!")
-        print("  /cs minimap - Toggle the map tracker icon ring.")
     end
 end
