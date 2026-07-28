@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding name="CLICK CompanionSwitcherActionButton:LeftButton" header="COMPANIONSWITCHER">
+        Trigger Active Summon Button
+    </Binding>
+</Bindings>
