@@ -36,8 +36,8 @@ local function ScanNativeCompanions()
     table.sort(scannedCompanions, function(a, b) return a.name < b.name end)
     
     if CompanionSwitcherFixedDB and (CompanionSwitcherFixedDB.currentCompanionName == "" or not CompanionSwitcherFixedDB.currentCompanionName) and #scannedCompanions > 0 then
-        CompanionSwitcherFixedDB.currentCompanionName = scannedCompanions.name
-        CompanionSwitcherFixedDB.currentCompanionIcon = scannedCompanions.icon
+        CompanionSwitcherFixedDB.currentCompanionName = scannedCompanions[1].name
+        CompanionSwitcherFixedDB.currentCompanionIcon = scannedCompanions[1].icon
     end
 end
 
@@ -105,6 +105,12 @@ end
 
 local function CycleCompanions(self, direction)
     if InCombatLockdown() then return end
+    
+    -- DEFENSIVE TRIGGER: Force a dynamic re-scan if the list loaded blank
+    if #scannedCompanions == 0 then 
+        ScanNativeCompanions() 
+        UpdateButtonVisuals()
+    end
     if #scannedCompanions == 0 then return end
     
     local cycleList = {}
@@ -143,9 +149,10 @@ actionButton:SetScript("OnDragStop", function(self)
     CompanionSwitcherFixedDB.buttonY = yOfs
 end)
 
--- FIXED: Explicitly maps to the exact local dropdownMenu frame reference
 actionButton:SetScript("OnMouseUp", function(self, button) 
     if button == "RightButton" then 
+        -- DEFENSIVE TRIGGER: Re-scan live right before opening menu if list is empty
+        if #scannedCompanions == 0 then ScanNativeCompanions() end
         ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) 
     end 
 end)
@@ -188,9 +195,9 @@ minimapButton:SetScript("OnDragStop", function(self)
     end
 end)
 
--- FIXED: Direct target tracking link assigned correctly to the dropdown framework
 minimapButton:SetScript("OnClick", function(self, button) 
     if button == "LeftButton" then 
+        if #scannedCompanions == 0 then ScanNativeCompanions() end
         ToggleDropDownMenu(1, nil, dropdownMenu, "cursor", 0, 0) 
     end 
 end)
@@ -287,12 +294,23 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         _G["BINDING_HEADER_COMPANIONSWITCHER"] = "Companion"
         _G["BINDING_NAME_CLICK VanityBoxActionButton:LeftButton"] = "Summon"
         
-        ScanNativeCompanions()
         actionButton:SetPoint("CENTER", UIParent, "CENTER", CompanionSwitcherFixedDB.buttonX, CompanionSwitcherFixedDB.buttonY)
         UpdateMinimapPosition()
-        UpdateButtonVisuals()
-        UIDropDownMenu_Initialize(dropdownMenu, InitializeDropdown, "MENU")
-        if CompanionSwitcherFixedDB.showMinimap then minimapButton:Show() else minimapButton:Hide() end
+        
+        -- SECURE DELAY ENGINE: Waits 2 seconds after loading to let Ascension finalize database sync pipelines
+        local delayFrame = CreateFrame("Frame")
+        delayFrame.timeElapsed = 0
+        delayFrame:SetScript("OnUpdate", function(f, elapsed)
+            f.timeElapsed = f.timeElapsed + elapsed
+            if f.timeElapsed >= 2 then
+                ScanNativeCompanions()
+                UpdateButtonVisuals()
+                UIDropDownMenu_Initialize(dropdownMenu, InitializeDropdown, "MENU")
+                if CompanionSwitcherFixedDB.showMinimap then minimapButton:Show() else minimapButton:Hide() end
+                f:SetScript("OnUpdate", nil) -- Kill delay script thread
+            end
+        end)
+        
         self:UnregisterEvent("ADDON_LOADED")
     elseif event == "COMPANION_LEARNED" then
         ScanNativeCompanions()
